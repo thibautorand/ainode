@@ -520,7 +520,6 @@ def optimize(g: FlowGraph, w, x0, y0, iters=250, lr=3.0,
         mh = m / (1 - b1 ** step)
         vh = v / (1 - b2 ** step)
         lr_t = lr * max(0.05, 1.0 - it / iters)
-        p = p - lr_t * mh / (np.sqrt(vh) + eps)
 
         if f0 < f_best - 1e-9:
             f_best = f0
@@ -528,6 +527,8 @@ def optimize(g: FlowGraph, w, x0, y0, iters=250, lr=3.0,
             last_improve = it
         elif it - last_improve > patience:
             break
+
+        p = p - lr_t * mh / (np.sqrt(vh) + eps)
 
     return p_best, f_best
 
@@ -799,6 +800,62 @@ def make_demo_graph(seed=7, n_middle=14, n_out=3):
 # Programme principal
 # ---------------------------------------------------------------------------
 
+def progressive(spec, rng, iters, lr):
+    """Placement causal : seuls les deux axes du nouveau noeud sont libres."""
+    nodes = {n["id"]: n for n in spec["nodes"]}
+    if len(nodes) != len(spec["nodes"]):
+        raise ValueError("Identifiants de noeuds dupliqués")
+    links = spec.get("links", [])
+    parents = {key: set() for key in nodes}
+    for link in links:
+        parents[link["to"]].add(link["from"])
+    placed = {}
+    remaining = dict(nodes)
+    while remaining:
+        # Continuer la procédure active. Dans un cycle, ouvrir une boucle.
+        key = min(remaining, key=lambda k: (len(parents[k] - placed.keys()),
+                                            -len(parents[k] & placed.keys())))
+        node = remaining.pop(key)
+        predecessors = parents[key] & placed.keys()
+        if predecessors:
+            x = max(placed[k][0] + nodes[k].get("width", 240) for k in predecessors) + 100
+            y = np.mean([placed[k][1] for k in placed if k in predecessors])
+        else:
+            x = 100.
+            y = max((p[1] + nodes[k].get("height", 117) for k, p in placed.items()), default=-20.) + 80
+        ids = [*placed, key]
+        active = set(ids)
+        graph = FlowGraph({"nodes": [nodes[k] for k in ids], "links": [
+            link for link in links if link["from"] in active and link["to"] in active]})
+        xs = np.array([placed[k][0] for k in placed] + [x], dtype=float)
+        ys = np.array([placed[k][1] for k in placed] + [y], dtype=float)
+        weights = dict.fromkeys(TERM_KEYS, 1.)
+        best = sum(exact_breakdown(graph, xs, ys).values())
+        winner = (x, y)
+        if placed and predecessors:
+            xs[-1], ys[-1] = np.array(winner) + rng.normal(0, [35, 70])
+            for step in range(iters + 1):
+                score = sum(exact_breakdown(graph, xs, ys).values())
+                if score < best:
+                    winner, best = (xs[-1], ys[-1]), score
+                def objective():
+                    return surrogate_cost(graph, np.r_[xs, ys], weights, 2.)[0]
+                base = objective()
+                gradient = []
+                for axis in (xs, ys):
+                    axis[-1] += 1
+                    gradient.append(objective() - base)
+                    axis[-1] -= 1
+                norm = math.hypot(*gradient)
+                if norm < 1e-6:
+                    break
+                scale = lr / (norm * math.sqrt(1 + step / 10))
+                xs[-1] -= scale * gradient[0]
+                ys[-1] -= scale * gradient[1]
+        placed[key] = winner
+    return tuple(np.array([placed[k][axis] for k in nodes]) for axis in (0, 1))
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Placement AI d'un graphe de flux (nodes + links).")
     ap.add_argument("graph", nargs="?", help="fichier JSON du graphe")
@@ -810,6 +867,7 @@ def main(argv=None):
     ap.add_argument("--outdir", default="layout_out")
     ap.add_argument("--png", action="store_true", help="apercus PNG (matplotlib requis)")
     ap.add_argument("--demo", action="store_true", help="genere un graphe de demo et l'optimise")
+    ap.add_argument("--progressive", action="store_true", help="placer puis figer chaque noeud")
     args = ap.parse_args(argv)
 
     if args.demo:
@@ -822,6 +880,14 @@ def main(argv=None):
 
     g = FlowGraph(spec)
     os.makedirs(args.outdir, exist_ok=True)
+    if args.progressive:
+        xs, ys = progressive(spec, np.random.default_rng(args.seed), args.iters, args.lr)
+        raw = exact_breakdown(g, xs, ys)
+        save_layout(os.path.join(args.outdir, "best_layout.json"), g, xs, ys,
+                    {"mode": "progressive", "cost_exact": sum(raw.values()), "raw": raw})
+        if args.png:
+            render_png(os.path.join(args.outdir, "preview.png"), g, xs, ys)
+        return
     w_path = os.path.join(args.outdir, "weights.csv")
     hist_path = os.path.join(args.outdir, "history.csv")
 
