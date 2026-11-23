@@ -1,0 +1,151 @@
+{
+  "note": "Deux proceduras de 5 noeuds avec des liens entre elles. Procedure A = Stocks (SAP), Procedure B = Livraisons.",
+  "nodes": [
+    {
+      "id": "A1_sap",
+      "kind": "source",
+      "family": "input",
+      "title": "Fichier source SAP",
+      "width": 240,
+      "height": 117,
+      "inputs": [],
+      "outputs": ["output"],
+      "several_links_on_input": false,
+      "linked_values_in": 0,
+      "linked_values_out": 0
+    },
+    {
+      "id": "A2_filter",
+      "kind": "filter",
+      "family": "transform",
+      "title": "Filtrer les lignes",
+      "width": 240,
+      "height": 117,
+      "inputs": ["input"],
+      "outputs": ["output"],
+      "several_links_on_input": false,
+      "linked_values_in": 0,
+      "linked_values_out": 0
+    },
+    {
+      "id": "A3_formula",
+      "kind": "formula",
+      "family": "transform",
+      "title": "Colonne calculée",
+      "width": 240,
+      "height": 117,
+      "inputs": ["input"],
+      "outputs": ["output"],
+      "several_links_on_input": false,
+      "linked_values_in": 0,
+      "linked_values_out": 2
+    },
+    {
+      "id": "A4_select",
+      "kind": "select",
+      "family": "transform",
+      "title": "Sélectionner les colonnes",
+      "width": 240,
+      "height": 117,
+      "inputs": ["input"],
+      "outputs": ["output"],
+      "several_links_on_input": false,
+      "linked_values_in": 0,
+      "linked_values_out": 0
+    },
+    {
+      "id": "A5_output",
+      "kind": "output",
+      "family": "output",
+      "title": "Publier stocks",
+      "width": 240,
+      "height": 117,
+      "inputs": ["input"],
+      "outputs": [],
+      "several_links_on_input": false,
+      "linked_values_in": 0,
+      "linked_values_out": 0
+    },
+    {
+      "id": "B1_ref",
+      "kind": "published",
+      "family": "input",
+      "title": "Référentiel magasins",
+      "width": 240,
+      "height": 117,
+      "inputs": [],
+      "outputs": ["output"],
+      "several_links_on_input": false,
+      "linked_values_in": 0,
+      "linked_values_out": 0
+    },
+    {
+      "id": "B2_lookup",
+      "kind": "lookup",
+      "family": "combine",
+      "title": "Rechercher des valeurs",
+      "width": 240,
+      "height": 117,
+      "inputs": ["input", "lookup"],
+      "outputs": ["output"],
+      "several_links_on_input": false,
+      "linked_values_in": 0,
+      "linked_values_out": 0
+    },
+    {
+      "id": "B3_sort",
+      "kind": "sort",
+      "family": "transform",
+      "title": "Trier les lignes",
+      "width": 240,
+      "height": 117,
+      "inputs": ["input"],
+      "outputs": ["output"],
+      "several_links_on_input": false,
+      "linked_values_in": 0,
+      "linked_values_out": 0
+    },
+    {
+      "id": "B4_check",
+      "kind": "check",
+      "family": "transform",
+      "title": "Contrôler",
+      "width": 240,
+      "height": 117,
+      "inputs": ["input", "reference"],
+      "outputs": ["output"],
+      "several_links_on_input": false,
+      "linked_values_in": 1,
+      "linked_values_out": 0
+    },
+    {
+      "id": "B5_mail",
+      "kind": "mail",
+      "family": "output",
+      "title": "Courrier Outlook",
+      "width": 240,
+      "height": 117,
+      "inputs": ["input"],
+      "outputs": [],
+      "several_links_on_input": false,
+      "linked_values_in": 1,
+      "linked_values_out": 0
+    }
+  ],
+  "links": [
+    { "from": "A1_sap",      "to": "A2_filter",  "output_port": "output", "input_port": "input",     "kind": "data" },
+    { "from": "A2_filter",   "to": "A3_formula", "output_port": "output", "input_port": "input",     "kind": "data" },
+    { "from": "A3_formula",  "to": "A4_select",  "output_port": "output", "input_port": "input",     "kind": "data" },
+    { "from": "A4_select",   "to": "A5_output",  "output_port": "output", "input_port": "input",     "kind": "data" },
+
+    { "from": "B1_ref",      "to": "B2_lookup",  "output_port": "output", "input_port": "input",     "kind": "data" },
+    { "from": "B1_ref",      "to": "B2_lookup",  "output_port": "output", "input_port": "lookup",    "kind": "data" },
+    { "from": "B2_lookup",   "to": "B3_sort",    "output_port": "output", "input_port": "input",     "kind": "data" },
+    { "from": "B3_sort",     "to": "B4_check",   "output_port": "output", "input_port": "input",     "kind": "data" },
+    { "from": "B4_check",    "to": "B5_mail",    "output_port": "output", "input_port": "input",     "kind": "data" },
+
+    { "from": "A2_filter",   "to": "B4_check",   "output_port": "output", "input_port": "reference", "kind": "data" },
+    { "from": "A3_formula",  "to": "B4_check",   "output_port": "linked_value", "input_port": "linked_value", "kind": "linked_value" },
+    { "from": "A3_formula",  "to": "B5_mail",    "output_port": "linked_value", "input_port": "linked_value", "kind": "linked_value" }
+  ]
+}
